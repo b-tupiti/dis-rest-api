@@ -20,4 +20,4 @@ EXPOSE 8000
 # Set the command to run the application using Uvicorn
 # 'app.main:app' refers to the 'app' instance inside 'main.py' located in the 'app' directory
 # The --host 0.0.0.0 flag is crucial to make the app accessible from outside the container
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "80"]
