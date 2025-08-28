@@ -301,3 +301,52 @@ async def get_products_under_price_2(
         raise HTTPException(status_code=500, detail=f"DynamoDB error: {error_code} - {error_message}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+    
+
+@app.get("/products_v3/")
+async def get_all_products_with_details():
+    """
+    Fetches all products and includes their inventory and review information.
+    
+    Returns:
+        A list of all products with their inventory and reviews.
+    """
+    try:
+        all_products = []
+        response = products_table.scan()
+        all_products.extend(response.get('Items', []))
+        
+        # Continue scanning if there are more items
+        while 'LastEvaluatedKey' in response:
+            response = products_table.scan(
+                ExclusiveStartKey=response['LastEvaluatedKey']
+            )
+            all_products.extend(response.get('Items', []))
+
+        # Use asyncio to fetch inventory and reviews concurrently for all products found
+        tasks = []
+        for product in all_products:
+            product_id = product.get('product_id')
+            if product_id:
+                tasks.append(get_inventory_info(product_id))
+                tasks.append(get_reviews_info(product_id))
+        
+        # Await all concurrent tasks
+        results = await asyncio.gather(*tasks)
+
+        # Merge the fetched data back into the product list
+        for i, product in enumerate(all_products):
+            inventory_data = results[i * 2]
+            reviews_data = results[i * 2 + 1]
+            
+            product['inventory'] = inventory_data
+            product['reviews'] = reviews_data
+
+        return all_products
+
+    except ClientError as e:
+        error_code = e.response['Error']['Code']
+        error_message = e.response['Error']['Message']
+        raise HTTPException(status_code=500, detail=f"DynamoDB error: {error_code} - {error_message}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
